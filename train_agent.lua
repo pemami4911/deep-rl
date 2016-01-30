@@ -82,9 +82,10 @@ while step < opt.steps do
     local action_index = agent:perceive(reward, sim_state, terminal)
 
     -- end of a run of the simulation?
-
-    -- RESUME HERE
-
+    
+    -- game_env will be an instance of an adapter I write to interface with V-Rep
+    -- An attempt should be made to make this adapter agnostic to whether
+    -- the actions are enumarated or sampled from a continuum 
     if not terminal then
         screen, reward, terminal = game_env:step(game_actions[action_index], true)
     else
