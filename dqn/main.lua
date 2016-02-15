@@ -4,29 +4,21 @@ Copyright (c) 2014 Google Inc.
 See LICENSE file for full terms of limited license.
 ]]
 
-function love.run()
-    -- Love2D initialization stuff
-    math.randomseed(os.time())
-    math.random() math.random()
- 
-    if love.load then love.load(arg) end
- 
-    local dt = 0
+require 'paths'
 
-    -- DQN init
-    if not dqn then
-        require "initenv"
-    end
+function love.load(arg)
+
+    -- Hack for removing the love dir 
+    table.remove(arg, 1)
 
     local cmd = torch.CmdLine()
-    cmd:text()
-    cmd:text('Train Agent in Environment:')
-    cmd:text()
+
     cmd:text('Options:')
 
     cmd:option('-framework', '', 'name of training framework')
+    cmd:option('-game_path', '', 'path to the love directory')
+    cmd:option('-run_dir', 'runs', 'path to run logs')
     cmd:option('-env', '', 'name of environment to use')
-    cmd:option('-game_path', '', 'path to environment file (ROM)')
     cmd:option('-env_params', '', 'string of environment parameters')
     cmd:option('-pool_frms', '',
                'string of frame pooling parameters (e.g.: size=2,type="max")')
@@ -56,7 +48,26 @@ function love.run()
 
     cmd:text()
 
-    local opt = cmd:parse(arg)
+    opt = cmd:parse(arg)
+
+    paths.mkdir(opt.run_dir)
+
+    cmd:log(opt.run_dir .. '/log', opt)
+end
+
+function love.run()
+    -- Love2D initialization stuff
+    math.randomseed(os.time())
+    math.random() math.random() 
+
+    --DQN init
+    if not dqn then
+        require "initenv"
+    end
+
+    if love.load then love.load(arg) end
+ 
+    local dt = 0
 
     --- General setup.
     local game_env, game_actions, agent, opt = setup(opt)
@@ -85,22 +96,19 @@ function love.run()
     local nepisodes
     local episode_reward
 
-    local screen, reward, terminal = game_env:getState()
+    --local screen, reward, terminal = game_env:getState()
 
     print("Iteration ..", step)
     while step < opt.steps do
         step = step + 1
-        local action_index = agent:perceive(reward, screen, terminal)
+        love.graphics.print("Hello World", 400, 300)
+        --[[local action_index = agent:perceive(reward, screen, terminal)
 
         -- game over? get next game!
         if not terminal then
             screen, reward, terminal = game_env:step(game_actions[action_index], true)
         else
-            if opt.random_starts > 0 then
-                screen, reward, terminal = game_env:nextRandomGame()
-            else
-                screen, reward, terminal = game_env:newGame()
-            end
+            screen, reward, terminal = game_env:reset()
         end
 
         if step % opt.prog_freq == 0 then
@@ -113,9 +121,10 @@ function love.run()
 
         if step%1000 == 0 then collectgarbage() end
 
+        -- Evaluate the network 
         if step % opt.eval_freq == 0 and step > learn_start then
 
-            screen, reward, terminal = game_env:newGame()
+            screen, reward, terminal = game_env:reset()
 
             total_reward = 0
             nrewards = 0
@@ -141,7 +150,7 @@ function love.run()
                     total_reward = total_reward + episode_reward
                     episode_reward = 0
                     nepisodes = nepisodes + 1
-                    screen, reward, terminal = game_env:nextRandomGame()
+                    screen, reward, terminal = game_env:restart()
                 end
             end
 
@@ -218,6 +227,6 @@ function love.run()
             print('Saved:', filename .. '.t7')
             io.flush()
             collectgarbage()
-        end
+        end--]]
     end
 end

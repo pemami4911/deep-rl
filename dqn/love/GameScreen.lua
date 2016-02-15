@@ -16,24 +16,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 ]]
 
 
--- This file defines the alewrap.GameScreen class.
+-- This file defines the love.GameScreen class.
 
 --[[ The GameScreen class is designed to efficiently combine a fixed number
 of consecutive images of identical dimensions coming in a sequence
-
-Several Atari games (e.g. Space Invaders, Ms. Pacman, Alien, etc.) contain
-blinking sprites, or important game objects which are drawn every other frame
-for technical reasons (e.g. asteroids in the eponymous game). Using single
-frames as state, even when sampled at a fixed interval, can miss many such
-elements, with possibly severe consequences during gameplay (e.g. bullets
-blink in most games). Pooling over consecutive frames reduces the risk of
-missing such game elements.
 
 The GameScreen class allows users to `paint` individual frames on a simulated
 screen and then `grab` the mean/max/etc of the last N painted frames. The
 default configuration will return the mean over the last two consecutive frames.
 ]]
-local gameScreen = torch.class('alewrap.GameScreen')
+local gameScreen = torch.class('GameScreen')
 
 
 -- Create a game screen with an empty frame buffer.

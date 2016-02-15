@@ -15,6 +15,7 @@ require 'NeuralQLearner'
 require 'TransitionTable'
 require 'Rectifier'
 
+--require 'love.init'
 
 function torchSetup(_opt)
     _opt = _opt or {}
@@ -111,13 +112,10 @@ function setup(_opt)
     --- first things first
     local opt = torchSetup(_opt)
 
-    -- load training framework and environment
-    local framework = require(opt.framework)
-    assert(framework)
-
-    local gameEnv = framework.GameEnvironment(opt)
-    local gameActions = gameEnv:getActions()
-
+    local gameEnv = love.GameEnvironment(opt)
+    --local gameActions = gameEnv:getActions()
+    local gameActions = {0,1}
+    
     -- agent options
     _opt.agent_params.actions   = gameActions
     _opt.agent_params.gpu       = _opt.gpu
