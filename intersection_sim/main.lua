@@ -1,10 +1,9 @@
 require 'Simulator'
 require 'SimulationEnvironment'
-require 'Turn'
-require 'Driving'
+require 'TrainingPolicies'
 
 local options = {
-	scenario=1,
+	scenario=4,
     scale=8,
     envWidth=51,
     envHeight=100,
@@ -16,19 +15,17 @@ local options = {
 	sceneLength=100,
 	trajectoryLength=100,
 	numScenarios=3,
-	dt=1/100
+	positionVariance=1,
+	dt=1/40 -- don't change this!
 }
 
 local env = SimulationEnvironment(options)
+local scenario = env:getScenario(true, options.scenario)
 local sim = Simulator(options, env)
-local driver = Driving({dt = 0.001})
+local policies = TrainingPolicies(options)
 local simTime = 10000
 local count = 1
---local policy = torch.zeros(4 * options.trajectoryLength, 4)
--- set accel for the first steps
---policy[{ 1, 1 }] = 1 -- m/s^2
---policy[{ 1, 3 }] = 1 -- m/s^2
-
+local doCollisionPolicy = false
 
 function love.load()
     love.window.setMode(options.scale * options.envWidth, options.scale * options.envHeight, {resizable=false, vsync=false})
@@ -39,22 +36,31 @@ function love.update(dt)
 
 	if count < simTime then
 
-		-- local actions = policy[math.floor(idx)]
 		local currentState = sim:state()
-		-- local acc, psi = turn(currentState[1][1], currentState[2][1], currentState[3][1], currentState[4][1], actions[1] * options.dt, "left", "side", options.dt)
-		-- actions[2] = psi
-		-- local acc, psi = turn(currentState[5][1], currentState[6][1], currentState[7][1], currentState[8][1], actions[3] * options.dt, "left", "main", options.dt)
-		-- actions[4] = psi
 
-		if count < 100 then
-			local acc1, ps1 = driver:driveStraight(currentState[4][1], 8, 1)
-			actions = torch.Tensor({acc1, ps1, 0, 0})
-		else 
-			local acc1, ps1 = driver:driveStraight(currentState[4][1], 0, 1)
-			actions = torch.Tensor({acc1, ps1, 0, 0})
-		end	
-				
+		actions, collisionFlag = policies:computeAction(
+			scenario.egoVehicle.behavior,
+			 scenario.obstacleVehicle.behavior,
+			  currentState, count, doCollisionPolicy)
+		
 		local reward, isTerminal = sim:step(actions)
+
+		if isTerminal then
+			local newScenarioIdx = math.random(5)
+			sim:reset(true, newScenarioIdx)
+			--sim:reset(true, )
+
+			if torch.bernoulli(0.5) == 1 then
+				doCollisionPolicy = true
+			else
+				doCollisionPolicy = false
+			end
+
+			scenario = env:getScenario(true, newScenarioIdx)
+			count = 1
+		end
+	else
+		print('Done with sim')
 	end
 end
 

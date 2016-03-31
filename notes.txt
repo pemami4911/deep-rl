@@ -1,0 +1,5 @@
+Q <= Q0
+generate trajectory based off sample policy
+using current Q network, compute target Q values  -> instant reward plus maxb Q(s', b)
+compare with Q(s, a)
+2 forward passes!!!

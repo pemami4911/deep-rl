@@ -1,23 +1,15 @@
---[[
-Copyright (c) 2014 Google Inc.
-
-See LICENSE file for full terms of limited license.
-]]
-
-require 'image'
-
-local trans = torch.class('dqn.TransitionTable')
+local trans = torch.class('TransitionTable')
 
 
 function trans:__init(args)
     self.stateDim = args.stateDim
     self.numActions = args.numActions
     self.histLen = args.histLen
-    self.maxSize = args.maxSize or 1024^2
-    self.bufferSize = args.bufferSize or 1024
+    self.maxSize = args.maxSize or 512^2
+    self.bufferSize = args.bufferSize or 512
     self.histType = args.histType or "linear"
     self.histSpacing = args.histSpacing or 1
-    self.zeroFrames = args.zeroFrames or 1
+    self.zeroStates = args.zeroStates or 1
     self.nonTermProb = args.nonTermProb or 1
     self.nonEventProb = args.nonEventProb or 1
     self.gpu = args.gpu
@@ -51,8 +43,7 @@ function trans:__init(args)
         end
     end
 
-    -- no table for storing s2
-    self.s = torch.ByteTensor(self.maxSize, self.stateDim):fill(0)
+    self.s = torch.Tensor(self.maxSize, self.stateDim):fill(0)
     self.a = torch.LongTensor(self.maxSize):fill(0)
     self.r = torch.zeros(self.maxSize)
     self.t = torch.ByteTensor(self.maxSize):fill(0)
@@ -60,20 +51,16 @@ function trans:__init(args)
 
     -- Tables for storing the last histLen states.  They are used for
     -- constructing the most recent agent state more easily.
-    
-    -- no table for storing recent s2
     self.recent_s = {}
     self.recent_a = {}
     self.recent_t = {}
 
-
-    -- buffer for storing s2
     local s_size = self.stateDim*histLen
     self.buf_a      = torch.LongTensor(self.bufferSize):fill(0)
     self.buf_r      = torch.zeros(self.bufferSize)
     self.buf_term   = torch.ByteTensor(self.bufferSize):fill(0)
-    self.buf_s      = torch.ByteTensor(self.bufferSize, s_size):fill(0)
-    self.buf_s2     = torch.ByteTensor(self.bufferSize, s_size):fill(0)
+    self.buf_s      = torch.Tensor(self.bufferSize, s_size):fill(0)
+    self.buf_s2     = torch.Tensor(self.bufferSize, s_size):fill(0)
 
     if self.gpu and self.gpu >= 0 then
         self.gpu_s  = self.buf_s:float():cuda()
@@ -97,7 +84,7 @@ function trans:empty()
     return self.numEntries == 0
 end
 
--- sample n transitions and fill the buffer with them
+
 function trans:fill_buffer()
     assert(self.numEntries >= self.bufferSize)
     -- clear CPU buffers
@@ -119,8 +106,7 @@ function trans:fill_buffer()
     end
 end
 
--- selecting a random s, a, r, s' tuple, throwing out
--- nonTerm / non-reward states with a probability 
+
 function trans:sample_one()
     assert(self.numEntries > 1)
     local index
@@ -149,7 +135,7 @@ function trans:sample_one()
     return self:get(index)
 end
 
--- fill the buffers and return `batch_size` transitions
+
 function trans:sample(batch_size)
     local batch_size = batch_size or 1
     assert(batch_size < self.bufferSize)
@@ -173,8 +159,8 @@ function trans:sample(batch_size)
     return buf_s[range], buf_a[range], buf_r[range], buf_s2[range], buf_term[range]
 end
 
--- RE-WRITE - generate 
-function trans:concatFrames(index, use_recent)
+
+function trans:concatStates(index, use_recent)
     if use_recent then
         s, t = self.recent_s, self.recent_t
     else
@@ -205,11 +191,11 @@ function trans:concatFrames(index, use_recent)
         end
     end
 
-    if self.zeroFrames == 0 then
+    if self.zeroStates == 0 then
         episode_start = 1
     end
 
-    -- Copy frames from the current episode.
+    -- Copy states from the current episode.
     for i=episode_start,self.histLen do
         fullstate[i]:copy(s[index+self.histIndices[i]-1])
     end
@@ -247,11 +233,11 @@ function trans:concatActions(index, use_recent)
         end
     end
 
-    if self.zeroFrames == 0 then
+    if self.zeroStates == 0 then
         episode_start = 1
     end
 
-    -- Copy frames from the current episode.
+    -- Copy states from the current episode.
     for i=episode_start,self.histLen do
         act_hist[i]:copy(self.action_encodings[a[index+self.histIndices[i]-1]])
     end
@@ -259,22 +245,22 @@ function trans:concatActions(index, use_recent)
     return act_hist
 end
 
--- RE-WRITE
+
 function trans:get_recent()
     -- Assumes that the most recent state has been added, but the action has not
-    return self:concatFrames(1, true):float():div(255)
+    return self:concatStates(1, true):float()
 end
 
--- RE-WRITE
+
 function trans:get(index)
-    local s = self:concatFrames(index)
-    local s2 = self:concatFrames(index+1)
+    local s = self:concatStates(index)
+    local s2 = self:concatStates(index+1)
     local ar_index = index+self.recentMemSize-1
 
     return s, self.a[ar_index], self.r[ar_index], s2, self.t[ar_index+1]
 end
 
--- RE-WRITE parts
+
 function trans:add(s, a, r, term)
     assert(s, 'State cannot be nil')
     assert(a, 'Action cannot be nil')
@@ -293,7 +279,7 @@ function trans:add(s, a, r, term)
     end
 
     -- Overwrite (s,a,r,t) at insertIndex
-    self.s[self.insertIndex] = s:clone():float():mul(255)
+    self.s[self.insertIndex] = s:clone():float()
     self.a[self.insertIndex] = a
     self.r[self.insertIndex] = r
     if term then
@@ -305,7 +291,7 @@ end
 
 
 function trans:add_recent_state(s, term)
-    local s = s:clone():float():mul(255):byte()
+    local s = s:clone():float()
     if #self.recent_s == 0 then
         for i=1,self.recentMemSize do
             table.insert(self.recent_s, s:clone():zero())
@@ -313,7 +299,6 @@ function trans:add_recent_state(s, term)
         end
     end
 
-    -- push state onto stack
     table.insert(self.recent_s, s)
     if term then
         table.insert(self.recent_t, 1)
@@ -323,7 +308,6 @@ function trans:add_recent_state(s, term)
 
     -- Keep recentMemSize states.
     if #self.recent_s > self.recentMemSize then
-        -- pop oldest from stack
         table.remove(self.recent_s, 1)
         table.remove(self.recent_t, 1)
     end
@@ -384,10 +368,10 @@ function trans:read(file)
     self.numEntries = 0
     self.insertIndex = 0
 
-    self.s = torch.ByteTensor(self.maxSize, self.stateDim):fill(0)
+    self.s = torch.Tensor(self.maxSize, self.stateDim):fill(0)
     self.a = torch.LongTensor(self.maxSize):fill(0)
     self.r = torch.zeros(self.maxSize)
-    self.t = torch.ByteTensor(self.maxSize):fill(0)
+    self.t = torch.Tensor(self.maxSize):fill(0)
     self.action_encodings = torch.eye(self.numActions)
 
     -- Tables for storing the last histLen states.  They are used for
@@ -399,8 +383,8 @@ function trans:read(file)
     self.buf_a      = torch.LongTensor(self.bufferSize):fill(0)
     self.buf_r      = torch.zeros(self.bufferSize)
     self.buf_term   = torch.ByteTensor(self.bufferSize):fill(0)
-    self.buf_s      = torch.ByteTensor(self.bufferSize, self.stateDim * self.histLen):fill(0)
-    self.buf_s2     = torch.ByteTensor(self.bufferSize, self.stateDim * self.histLen):fill(0)
+    self.buf_s      = torch.Tensor(self.bufferSize, self.stateDim * self.histLen):fill(0)
+    self.buf_s2     = torch.Tensor(self.bufferSize, self.stateDim * self.histLen):fill(0)
 
     if self.gpu and self.gpu >= 0 then
         self.gpu_s  = self.buf_s:float():cuda()

@@ -12,9 +12,10 @@ require 'nnutils'
 require 'image'
 require 'Scale'
 require 'NeuralQLearner'
-require 'TransitionTable'
+require 'Transitions'
 require 'Rectifier'
-require 'love.init'
+require 'SimulationEnvironment'
+require 'Simulator'
 
 function torchSetup(_opt)
     _opt = _opt or {}
@@ -111,9 +112,10 @@ function setup(_opt)
     --- first things first
     local opt = torchSetup(_opt)
 
-    local gameEnv = GameEnvironment(opt)
-    --local gameActions = gameEnv:getActions()
-    local gameActions = {0,1}
+    local gameEnv = SimulationEnvironment(opt)
+    local sim     = Simulator(opt, gameEnv)
+    
+    local gameActions = require 'Actions'
     
     -- agent options
     _opt.agent_params.actions   = gameActions

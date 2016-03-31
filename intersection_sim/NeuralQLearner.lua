@@ -1,18 +1,7 @@
---[[
-Copyright (c) 2014 Google Inc.
-
-See LICENSE file for full terms of limited license.
-]]
-
-if not dqn then
-    require 'initenv'
-end
-
-local nql = torch.class('dqn.NeuralQLearner')
-
+local nql = torch.class('NeuralQLearner')
 
 function nql:__init(args)
-    self.state_dim  = args.state_dim -- State dimensionality.
+	self.state_dim  = args.state_dim -- State dimensionality.
     self.actions    = args.actions
     self.n_actions  = #self.actions
     self.verbose    = args.verbose
@@ -52,13 +41,11 @@ function nql:__init(args)
 
     self.gpu            = args.gpu
 
-    self.ncols          = args.ncols or 1  -- number of color channels in input
     self.input_dims     = args.input_dims or {self.hist_len*self.ncols, 84, 84}
-    self.preproc        = args.preproc  -- name of preprocessing network
     self.histType       = args.histType or "linear"  -- history type to use
     self.histSpacing    = args.histSpacing or 1
     self.nonTermProb    = args.nonTermProb or 1
-    self.bufferSize     = args.bufferSize or 512
+    self.bufferSize     = args.bufferSize or 256 -- 512
 
     self.transition_params = args.transition_params or {}
 
@@ -91,31 +78,13 @@ function nql:__init(args)
 
     if self.gpu and self.gpu >= 0 then
         self.network:cuda()
-    else
-        self.network:float()
-    end
-
-    -- Load preprocessing network.
-    if not (type(self.preproc == 'string')) then
-        error('The preprocessing is not a string')
-    end
-    msg, err = pcall(require, self.preproc)
-    if not msg then
-        error("Error loading preprocessing net")
-    end
-    self.preproc = err
-    self.preproc = self:preproc()
-    self.preproc:float()
-
-    if self.gpu and self.gpu >= 0 then
-        self.network:cuda()
         self.tensor_type = torch.CudaTensor
     else
         self.network:float()
-        self.tensor_type = torch.FloatTensor
+        self.tensor_type = torch.FloatTensor        
     end
 
-    -- Create transition table.
+     -- Create transition table.
     ---- assuming the transition table always gets floating point input
     ---- (Foat or Cuda tensors) and always returns one of the two, as required
     ---- internally it always uses ByteTensors for states, scaling and
@@ -128,7 +97,7 @@ function nql:__init(args)
         bufferSize = self.bufferSize
     }
 
-    self.transitions = dqn.TransitionTable(transition_args)
+	self.transitions = dqn.TransitionTable(transition_args)
 
     self.numSteps = 0 -- Number of perceived states.
     self.lastState = nil
@@ -153,7 +122,6 @@ function nql:__init(args)
     end
 end
 
-
 function nql:reset(state)
     if not state then
         return
@@ -165,17 +133,6 @@ function nql:reset(state)
     self.numSteps = 0
     print("RESET STATE SUCCESFULLY")
 end
-
-
-function nql:preprocess(rawstate)
-    if self.preproc then
-        return self.preproc:forward(rawstate:float())
-                    :clone():reshape(self.state_dim)
-    end
-
-    return rawstate
-end
-
 
 function nql:getQUpdate(args)
     local s, a, r, s2, term, delta
@@ -297,9 +254,7 @@ function nql:compute_validation_statistics()
 end
 
 
-function nql:perceive(reward, rawstate, terminal, testing, testing_ep)
-    -- Preprocess state (will be set to nil if terminal)
-    local state = self:preprocess(rawstate):float()
+function nql:perceive(reward, state, terminal, testing, example_policies)
     local curState
 
     if self.max_reward then
@@ -331,7 +286,7 @@ function nql:perceive(reward, rawstate, terminal, testing, testing_ep)
 
     -- Select action
     local actionIndex = 1
-    if not terminal then
+    if not terminal and not example_policies then
         actionIndex = self:eGreedy(curState, testing_ep)
     end
 
@@ -380,10 +335,10 @@ end
 
 function nql:greedy(state)
     -- Turn single state into minibatch.  Needed for convolutional nets.
-    if state:dim() == 2 then
-        assert(false, 'Input must be at least 3D')
-        state = state:resize(1, state:size(1), state:size(2))
-    end
+    -- if state:dim() == 2 then
+    --     assert(false, 'Input must be at least 3D')
+    --     state = state:resize(1, state:size(1), state:size(2))
+    -- end
 
     if self.gpu >= 0 then
         state = state:cuda()
@@ -409,22 +364,17 @@ function nql:greedy(state)
     self.lastAction = besta[r]
 
     return besta[r]
-end
-
-
+    
 function nql:createNetwork()
-    local n_hid = 128
+    local n_hid = 64
     local mlp = nn.Sequential()
-    mlp:add(nn.Reshape(self.hist_len*self.ncols*self.state_dim))
-    mlp:add(nn.Linear(self.hist_len*self.ncols*self.state_dim, n_hid))
+    mlp:add(nn.Linear(self.hist_len * self.state_dim, n_hid))
     mlp:add(nn.Rectifier())
     mlp:add(nn.Linear(n_hid, n_hid))
     mlp:add(nn.Rectifier())
     mlp:add(nn.Linear(n_hid, self.n_actions))
-
     return mlp
 end
-
 
 function nql:_loadNet()
     local net = self.network

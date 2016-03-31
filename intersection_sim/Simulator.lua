@@ -1,8 +1,12 @@
 -- Patrick Emami
 
 require 'torch'
+require 'TrainingScenarios'
+require 'Behaviors'
+
 local HC = require 'HC'
 local simulator = torch.class("Simulator")
+local acc_levels = require 'Actions'
 
 -- ##########################################################
 -- Representation of vehicle state. 
@@ -39,22 +43,16 @@ function simulator:__init(opt, env)
 	self.scale = opt.scale
 	self.env = env
 	self.trajectoryLength = opt.trajectoryLength
-	self.vehicleState = self:initScenario(env:getScenario(opt.scenario))
+	
 	self.vehicleLength = opt.vehicleLength * opt.scale
 	self.vehicleWidth = opt.vehicleWidth * opt.scale
 	self.wheelBase = opt.wheelBase * opt.scale
 	self.dt = opt.dt
-	-- Draw the vehicles in their initial states 
+	self.stateDim = 8
+	self.obsVehicleWaitParam = opt.obsVehicleWaitParam or 0.98
+	self.behaviors = Behaviors(opt)
 
-	local corners = self:computeCorners()
-	-- Ego Vehicle
-	self.egoVehicle = HC.rectangle(corners[1][2][1], corners[1][2][2], self.vehicleWidth, self.vehicleLength)
-	self.egoVehicle:rotate(torch.totable(self.vehicleState)[3][1])
-	
-	-- Obstacle Vehicle
-	self.obstacleVehicle = HC.rectangle(corners[2][2][1], corners[2][2][2], self.vehicleWidth, self.vehicleLength)
-	self.obstacleVehicle:rotate(torch.totable(self.vehicleState)[7][1])
-
+	self:reset(true, opt.scenario)	
 end
 
 -- Only for Love simulations
@@ -71,16 +69,16 @@ end
   Parameters:
     * scenario - initial states for each vehicle
   ]]
-function simulator:initScenario(scenario)
-	local state = torch.Tensor(8,1)
-	state[1] = scenario[1][1]  -- x (in meters, not pixels)
-	state[2] = scenario[1][2]  -- y
-	state[3] = scenario[1][3]  -- theta
-	state[4] = scenario[1][4]  -- velocity
-	state[5] = scenario[2][1]
-	state[6] = scenario[2][2]
-	state[7] = scenario[2][3]
-	state[8] = scenario[2][4]
+function simulator:initState(scenario)
+	local state = torch.Tensor(self.stateDim, 1)
+	state[1] = scenario.egoVehicle.x
+	state[2] = scenario.egoVehicle.y
+	state[3] = scenario.egoVehicle.heading
+	state[4] = scenario.egoVehicle.velocity
+	state[5] = scenario.obstacleVehicle.x
+	state[6] = scenario.obstacleVehicle.y
+	state[7] = scenario.obstacleVehicle.heading
+	state[8] = scenario.obstacleVehicle.velocity
 	return state
 end
 
@@ -89,20 +87,87 @@ end
 	each vehicle 
 
 	Parameters: 
-	 * actions - {acc1, acc2, psi1, psi2}
+	 * actions - {acc_levels.NONE, acc_levels.GO, acc_levels.BRAKE}
 
 	Returns:
 		* reward - scalar reward observed by taking the action 
 				in the current state
 ]]
-function simulator:step(actions)
+function simulator:step(action, trajectory_step)
+	-- get control inputs
+	local obsVehicle = { acc, psi }
+	local egoVehicle = { acc, psi }
+
+	if trajectory_step < self.obstacleVehicleWaitTime then
+		obsVehicle.acc = 0
+		obsVehicle.psi = 0
+	else
+		obsVehicle.acc, obsVehicle.psi = self:getControlInputs(
+			OBSTACLE,
+			 self.scenario.obstacleVehicle.behavior,
+			  acc_levels.GO)
+	end
+
+	egoVehicle.acc, egoVehicle.psi = self:getControlInputs(
+		EGO,
+		 self.scenario.egoVehicle.behavior,
+		  action)
+
+	actions = {egoVehicle, obsVehicle}
+
+	-- convert the action into acc, psi pairs
+	-- convert behavior nums to actual behaviors
 	-- take action, observe new state 
-	local reward, isTerminal = self.env:reward(self.egoVehicle, self.obstacleVehicle, actions)
+	local reward, isTerminal = self.env:reward(
+		self.egoVehicle,
+		 self.obstacleVehicle,
+		  self.vehicleState[{{1, 4}}],
+		   action)
+
 	if not isTerminal then 
 		self:updatePosition(actions)
 	end 
 	return reward, isTerminal
 end 
+
+-- resets to the current scenario
+function simulator:reset(isTraining, scenarioIdx)	
+
+	self.scenario = self.env:getScenario(isTraining, scenarioIdx)
+	self.obstacleVehicleWaitTime = torch.geometric(self.obsVehicleWaitParam)
+
+	self.vehicleState = self:initState(self.scenario)
+
+	local corners = self:computeCorners()
+
+	-- Ego Vehicle
+	self.egoVehicle = HC.rectangle(corners[1][2][1], corners[1][2][2], self.vehicleWidth, self.vehicleLength)
+	self.egoVehicle:rotate(torch.totable(self.vehicleState)[3][1])
+	
+	-- Obstacle Vehicle
+	self.obstacleVehicle = HC.rectangle(corners[2][2][1], corners[2][2][2], self.vehicleWidth, self.vehicleLength)
+	self.obstacleVehicle:rotate(torch.totable(self.vehicleState)[7][1])
+
+	self.env:setTerminalCondition(self.scenario.terminatingCondition)
+end
+
+function simulator:getControlInputs(vehicleType, bhv, action)
+	local controlInput = { acc, psi }
+
+	if bhv == 1 or bhv == 2 then
+		controlInput.acc, controlInput.psi = self.behaviors:driveStraight(vehicleType, self.vehicleState, action)
+	elseif bhv == 3 then
+		controlInput.acc, controlInput.psi = self.behaviors:makeTurn(vehicleType, self.vehicleState, action, "left", "side")
+	elseif bhv == 4 then
+		controlInput.acc, controlInput.psi = self.behaviors:makeTurn(vehicleType, self.vehicleState, action, "right", "side")
+	elseif bhv == 5 then
+		controlInput.acc, controlInput.psi = self.behaviors:makeTurn(vehicleType, self.vehicleState, action, "left", "main")
+	elseif bhv == 6 then
+		controlInput.acc, controlInput.psi = self.behaviors:makeTurn(vehicleType, self.vehicleState, action, "right", "main")
+	end
+
+	return controlInput		
+end
 
 --[[
   Returns: 
@@ -158,11 +223,11 @@ end
 ]]
 function simulator:updatePosition(actions)
 	 -- have the observation vehicle advance its position based on its policy
-	 local a = torch.totable(actions)
-	 local egoVehicleAccel = a[1]
-	 local egoVehiclePsi = a[2]
-	 local obstacleVehicleAccel = a[3]
-	 local obstacleVehiclePsi = a[4]
+	 local egoVehicleAcc = actions.egoVehicle.acc
+	 local egoVehiclePsi = actions.egoVehicle.psi
+	 local obstacleVehicleAccel = actions.obstacleVehicle.acc
+	 local obstacleVehiclePsi = actions.obstacleVehicle.psi
+
 	 local oldState = self.vehicleState:clone()
 	 local oldEgoVehicleVelocity = torch.mul(oldState[4], self.dt)
 	 local oldObstacleVehicleVelocity = torch.mul(oldState[8], self.dt)
@@ -215,4 +280,12 @@ end
 
 function simulator:state()
 	return torch.totable(self.vehicleState)
+end
+
+function simulator:getState()
+	return self.vehicleState
+end
+
+function simulator:nObsFeature()
+	return self.stateDim
 end
