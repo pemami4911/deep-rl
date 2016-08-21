@@ -1,5 +1,12 @@
 # deep-rl
-Collection of Deep Reinforcement Learning algorithms
+Collection of Deep Reinforcement Learning algorithms.
+
+Dependencies: 
+
+* Tensorflow
+* tflearn
+* OpenAI gym
+* numpy
 
 So far: 
 
