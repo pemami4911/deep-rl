@@ -119,7 +119,7 @@ class ActorNetwork(object):
         })
 
     def predict_target(self, inputs):
-        return self.sess.run(self.target_out, feed_dict={
+        return self.sess.run(self.target_scaled_out, feed_dict={
             self.target_inputs: inputs
         })
 
