@@ -24,9 +24,9 @@ MAX_EPISODES = 50000
 # Max episode length
 MAX_EP_STEPS = 1000
 # Base learning rate for the Actor network
-ACTOR_LEARNING_RATE = 0.001
+ACTOR_LEARNING_RATE = 0.0001
 # Base learning rate for the Critic Network
-CRITIC_LEARNING_RATE = 0.0001
+CRITIC_LEARNING_RATE = 0.001
 # Discount factor 
 GAMMA = 0.99
 # Soft target update param
