@@ -164,8 +164,12 @@ class CriticNetwork(object):
         self.loss = tflearn.mean_square(self.predicted_q_value, self.out)
         self.optimize = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
-        # Get the gradient of the net w.r.t. the action
-        self.action_grads = tf.gradients(self.out, self.action)
+        # Get the gradient of the net w.r.t. the action.
+        # For each action in the minibatch (i.e., for each x in xs),
+        # this will sum up the gradients of each critic output in the minibatch 
+        # w.r.t. that action (i.e., sum of dy/dx over all ys). We then divide
+        # through by the minibatch size to scale the gradients down correctly.
+        self.action_grads = tf.div(tf.gradients(self.out, self.action), tf.constant(MINIBATCH_SIZE, dtype=tf.float32))
 
     def create_critic_network(self):
         inputs = tflearn.input_data(shape=[None, self.s_dim])
