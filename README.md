@@ -3,9 +3,9 @@ Collection of Deep Reinforcement Learning algorithms.
 
 Dependencies: 
 
-* [Tensorflow r0.11.0](https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-0.11.0-py2-none-any.whl)
+* [Tensorflow 1.0.0](https://www.tensorflow.org/install/)
 * [tflearn](http://tflearn.org/installation/)
-* [OpenAI Gym v0.5.7](https://github.com/openai/gym/tree/0.5.7)
+* [OpenAI Gym 0.7.3](https://github.com/openai/gym/)
 
 So far: 
 

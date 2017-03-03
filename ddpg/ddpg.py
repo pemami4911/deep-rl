@@ -12,6 +12,7 @@ Author: Patrick Emami
 import tensorflow as tf
 import numpy as np
 import gym 
+from gym import wrappers
 import tflearn
 
 from replay_buffer import ReplayBuffer
@@ -81,8 +82,8 @@ class ActorNetwork(object):
 
         # Op for periodically updating target network with online network weights
         self.update_target_network_params = \
-            [self.target_network_params[i].assign(tf.mul(self.network_params[i], self.tau) + \
-                tf.mul(self.target_network_params[i], 1. - self.tau))
+            [self.target_network_params[i].assign(tf.multiply(self.network_params[i], self.tau) + \
+                tf.multiply(self.target_network_params[i], 1. - self.tau))
                 for i in range(len(self.target_network_params))]
 
         # This gradient will be provided by the critic network
@@ -104,7 +105,7 @@ class ActorNetwork(object):
         # Final layer weights are init to Uniform[-3e-3, 3e-3]
         w_init = tflearn.initializations.uniform(minval=-0.003, maxval=0.003)
         out = tflearn.fully_connected(net, self.a_dim, activation='tanh', weights_init=w_init)
-        scaled_out = tf.mul(out, self.action_bound) # Scale output to -action_bound to action_bound
+        scaled_out = tf.multiply(out, self.action_bound) # Scale output to -action_bound to action_bound
         return inputs, out, scaled_out 
 
     def train(self, inputs, a_gradient):
@@ -154,7 +155,7 @@ class CriticNetwork(object):
 
         # Op for periodically updating target network with online network weights with regularization
         self.update_target_network_params = \
-            [self.target_network_params[i].assign(tf.mul(self.network_params[i], self.tau) + tf.mul(self.target_network_params[i], 1. - self.tau))
+            [self.target_network_params[i].assign(tf.multiply(self.network_params[i], self.tau) + tf.multiply(self.target_network_params[i], 1. - self.tau))
                 for i in range(len(self.target_network_params))]
     
         # Network target (y_i)
@@ -222,12 +223,12 @@ class CriticNetwork(object):
 # ===========================
 def build_summaries(): 
     episode_reward = tf.Variable(0.)
-    tf.scalar_summary("Reward", episode_reward)
+    tf.summary.scalar("Reward", episode_reward)
     episode_ave_max_q = tf.Variable(0.)
-    tf.scalar_summary("Qmax Value", episode_ave_max_q)
+    tf.summary.scalar("Qmax Value", episode_ave_max_q)
 
     summary_vars = [episode_reward, episode_ave_max_q]
-    summary_ops = tf.merge_all_summaries()
+    summary_ops = tf.summary.merge_all()
 
     return summary_ops, summary_vars
 
@@ -239,8 +240,8 @@ def train(sess, env, actor, critic):
     # Set up summary Ops
     summary_ops, summary_vars = build_summaries()
 
-    sess.run(tf.initialize_all_variables())
-    writer = tf.train.SummaryWriter(SUMMARY_DIR, sess.graph)
+    sess.run(tf.global_variables_initializer())
+    writer = tf.summary.FileWriter(SUMMARY_DIR, sess.graph)
 
     # Initialize target network weights
     actor.update_target_network()
@@ -338,9 +339,9 @@ def main(_):
 
         if GYM_MONITOR_EN:
             if not RENDER_ENV:
-                env.monitor.start(MONITOR_DIR, video_callable=False, force=True)
+                env = wrappers.Monitor(env, MONITOR_DIR, video_callable=False, force=True)
             else:
-                env.monitor.start(MONITOR_DIR, force=True)
+                env = wrappers.Monitor(env, MONITOR_DIR, force=True)
 
         train(sess, env, actor, critic)
 
