@@ -12,6 +12,7 @@ Author: Patrick Emami
 import tensorflow as tf
 import numpy as np
 import gym 
+from gym import wrappers
 import tflearn
 
 from replay_buffer import ReplayBuffer
@@ -36,7 +37,7 @@ TAU = 0.001
 #   Utility Parameters
 # ===========================
 # Render gym env during training
-RENDER_ENV = False
+RENDER_ENV = True
 # Use Gym Monitor
 GYM_MONITOR_EN = True
 # Gym environment
@@ -338,9 +339,9 @@ def main(_):
 
         if GYM_MONITOR_EN:
             if not RENDER_ENV:
-                env = gym.wrappers.Monitor(env, MONITOR_DIR, video_callable=False, force=True)
+                env = wrappers.Monitor(env, MONITOR_DIR, video_callable=False, force=True)
             else:
-                env = gym.wrappers.Monitor(env, MONITOR_DIR, force=True)
+                env = wrappers.Monitor(env, MONITOR_DIR, force=True)
 
         train(sess, env, actor, critic)
 
