@@ -162,8 +162,7 @@ class CriticNetwork(object):
         # Target Network
         self.target_inputs, self.target_action, self.target_out = self.create_critic_network()
 
-        self.target_network_params = tf.trainable_variables(
-        )[(len(self.network_params) + num_actor_vars):]
+        self.target_network_params = tf.trainable_variables()[(len(self.network_params) + num_actor_vars):]
 
         # Op for periodically updating target network with online network
         # weights with regularization
