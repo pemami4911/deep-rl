@@ -32,13 +32,14 @@ class ActorNetwork(object):
     between -action_bound and action_bound
     """
 
-    def __init__(self, sess, state_dim, action_dim, action_bound, learning_rate, tau):
+    def __init__(self, sess, state_dim, action_dim, action_bound, learning_rate, tau, batch_size):
         self.sess = sess
         self.s_dim = state_dim
         self.a_dim = action_dim
         self.action_bound = action_bound
         self.learning_rate = learning_rate
         self.tau = tau
+        self.batch_size = batch_size
 
         # Actor Network
         self.inputs, self.out, self.scaled_out = self.create_actor_network()
@@ -62,8 +63,9 @@ class ActorNetwork(object):
         self.action_gradient = tf.placeholder(tf.float32, [None, self.a_dim])
 
         # Combine the gradients here
-        self.actor_gradients = tf.gradients(
+        self.unnormalized_actor_gradients = tf.gradients(
             self.scaled_out, self.network_params, -self.action_gradient)
+        self.actor_gradients = list(map(lambda x: tf.div(x, self.batch_size), self.unnormalized_actor_gradients))
 
         # Optimization Op
         self.optimize = tf.train.AdamOptimizer(self.learning_rate).\
@@ -350,7 +352,8 @@ def main(args):
         assert (env.action_space.high == -env.action_space.low)
 
         actor = ActorNetwork(sess, state_dim, action_dim, action_bound,
-                             float(args['actor_lr']), float(args['tau']))
+                             float(args['actor_lr']), float(args['tau']),
+                             int(args['minibatch_size']))
 
         critic = CriticNetwork(sess, state_dim, action_dim,
                                float(args['critic_lr']), float(args['tau']),
