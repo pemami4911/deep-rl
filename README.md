@@ -11,4 +11,7 @@ Tested with Python 2.7 and Python 3.6
 
 So far: 
 
-1. DDPG - Deep Deterministic Policy Gradients, evaluated on the Pendulum-v0 environment in OpenAI Gym
+1. DDPG - Deep Deterministic Policy Gradients, evaluated on the Pendulum-v0 environment in OpenAI Gym.
+
+@keithmgould [modified the DDPG code](https://github.com/keithmgould/deep-rl) to solve the cartpole task in Roboschool. ![Cartpole demo](https://raw.githubusercontent.com/keithmgould/deep-rl/master/demo.gif)
+   
