@@ -13,5 +13,10 @@ So far:
 
 1. DDPG - Deep Deterministic Policy Gradients, evaluated on the Pendulum-v0 environment in OpenAI Gym.
 
-@keithmgould [modified the DDPG code](https://github.com/keithmgould/deep-rl) to solve the cartpole task in Roboschool. ![Cartpole demo](https://raw.githubusercontent.com/keithmgould/deep-rl/master/demo.gif)
+## Applications
+
+If you have used this code to do something cool, send me a link and a GIF (via email or pull request) and I'll add it
+
+1. @keithmgould [used the same the DDPG code](https://github.com/keithmgould/deep-rl) to solve the inverted Pendulum task in Roboschool. ![InvertedPendulum demo](https://raw.githubusercontent.com/keithmgould/deep-rl/master/demo.gif)
+
    
