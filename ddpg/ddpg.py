@@ -266,6 +266,9 @@ def train(sess, env, args, actor, critic, actor_noise):
     # Initialize replay memory
     replay_buffer = ReplayBuffer(int(args['buffer_size']), int(args['random_seed']))
 
+    # Needed to enable BatchNorm
+    tflearn.is_training(True)
+
     for i in range(int(args['max_episodes'])):
 
         s = env.reset()
