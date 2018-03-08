@@ -11,4 +11,12 @@ Tested with Python 2.7 and Python 3.6
 
 So far: 
 
-1. DDPG - Deep Deterministic Policy Gradients, evaluated on the Pendulum-v0 environment in OpenAI Gym
+1. DDPG - Deep Deterministic Policy Gradients, evaluated on the Pendulum-v0 environment in OpenAI Gym.
+
+## Applications
+
+If you have used this code to do something cool, send me a link and a GIF (via email or pull request) and I'll add it
+
+1. @keithmgould [used the same the DDPG code](https://github.com/keithmgould/deep-rl) to solve the inverted Pendulum task in Roboschool. ![InvertedPendulum demo](https://raw.githubusercontent.com/keithmgould/deep-rl/master/demo.gif)
+
+   
