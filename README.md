@@ -13,10 +13,10 @@ So far:
 
 1. DDPG - Deep Deterministic Policy Gradients, evaluated on the Pendulum-v0 environment in OpenAI Gym.
 
-## Applications
+## Places where this code has been used
 
 If you have used this code to do something cool, send me a link and a GIF (via email or pull request) and I'll add it
 
 1. @keithmgould [used the same the DDPG code](https://github.com/keithmgould/deep-rl) to solve the inverted Pendulum task in Roboschool. ![InvertedPendulum demo](https://raw.githubusercontent.com/keithmgould/deep-rl/master/demo.gif)
-
+2. @janscholten [Deep Reinforcement Learning with Feedback-based Exploration](https://arxiv.org/abs/1903.06151) [[code]](https://github.com/janscholten/ppmp) 
    
